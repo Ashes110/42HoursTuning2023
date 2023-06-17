@@ -28,7 +28,6 @@ export const getUserIdByMailAndPassword = async (
 // ): Promise<User[]> => {
 //   const query = `SELECT user_id, user_name, office_id, user_icon_id FROM user ORDER BY entry_date ASC, kana ASC LIMIT ? OFFSET ?`;
 //   const rows: RowDataPacket[] = [];
-
 //   const [userRows] = await pool.query<RowDataPacket[]>(query, [limit, offset]);
 //   for (const userRow of userRows) {
 //     const [officeRows] = await pool.query<RowDataPacket[]>(
@@ -76,7 +75,6 @@ export const getUserByUserId = async (// TODO
   if (user.length === 0) {
     return;
   }
-
   const [office] = await pool.query<RowDataPacket[]>(
     `SELECT office_name FROM office WHERE office_id = ?`,
     [user[0].office_id]
@@ -85,7 +83,6 @@ export const getUserByUserId = async (// TODO
     `SELECT file_name FROM file WHERE file_id = ?`,
     [user[0].user_icon_id]
   );
-
   return {
     userId: user[0].user_id,
     userName: user[0].user_name,
@@ -110,13 +107,10 @@ export const getUserByUserId = async (// TODO
 //     LEFT JOIN office ON user.office_id = office.office_id
 //     LEFT JOIN file ON user.user_icon_id = file.file_id
 //     WHERE user.user_id = ?`;
-
 //   const [rows] = await pool.query<RowDataPacket[]>(query, [userId]);
-
 //   if (rows.length === 0) {
 //     return;
 //   }
-
 //   return {
 //     userId: rows[0].user_id,
 //     userName: rows[0].user_name,
