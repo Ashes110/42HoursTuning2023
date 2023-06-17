@@ -22,7 +22,7 @@ export const getUserIdByMailAndPassword = async (
   return user[0].user_id;
 };
 
-export const getUsers = async (
+export const getUsers = async (// TODO
   limit: number,
   offset: number
 ): Promise<User[]> => {
@@ -47,7 +47,27 @@ export const getUsers = async (
   return convertToUsers(rows);
 };
 
-export const getUserByUserId = async (
+// export const getUsers = async (
+//   limit: number,
+//   offset: number
+// ): Promise<User[]> => {
+//   const query = `
+//     SELECT
+//       user.user_id,
+//       user.user_name,
+//       office.office_name as office_id,
+//       file.file_name as user_icon_id
+//     FROM user
+//     LEFT JOIN office ON user.office_id =
+//     .office_id
+//     LEFT JOIN file ON user.user_icon_id = file.file_id
+//     ORDER BY user.entry_date ASC, user.kana ASC
+//     LIMIT ? OFFSET ?`;
+//   const [rows] = await pool.query<RowDataPacket[]>(query, [limit, offset]);
+//   return convertToUsers(rows);
+// };
+
+export const getUserByUserId = async (// TODO
   userId: string
 ): Promise<User | undefined> => {
   const [user] = await pool.query<RowDataPacket[]>(
@@ -78,7 +98,38 @@ export const getUserByUserId = async (
   };
 };
 
-export const getUsersByUserIds = async (
+// export const getUserByUserId = async (
+//   userId: string
+// ): Promise<User | undefined> => {
+//   const query = `
+//     SELECT
+//       user.user_id,
+//       user.user_name,
+//       office.office_name as office_name,
+//       file.file_name as file_name
+//     FROM user
+//     LEFT JOIN office ON user.office_id = office.office_id
+//     LEFT JOIN file ON user.user_icon_id = file.file_id
+//     WHERE user.user_id = ?`;
+
+//   const [rows] = await pool.query<RowDataPacket[]>(query, [userId]);
+
+//   if (rows.length === 0) {
+//     return;
+//   }
+
+//   return {
+//     userId: rows[0].user_id,
+//     userName: rows[0].user_name,
+//     userIcon: {
+//       fileId: rows[0].user_icon_id,
+//       fileName: rows[0].file_name,
+//     },
+//     officeName: rows[0].office_name,
+//   };
+// };
+
+export const getUsersByUserIds = async (//TODO
   userIds: string[]
 ): Promise<SearchedUser[]> => {
   let users: SearchedUser[] = [];
@@ -235,7 +286,7 @@ export const getUsersByGoal = async (goal: string): Promise<SearchedUser[]> => {
   return getUsersByUserIds(userIds);
 };
 
-export const getUserForFilter = async (
+export const getUserForFilter = async (//TODO
   userId?: string
 ): Promise<UserForFilter> => {
   let userRows: RowDataPacket[];
