@@ -22,30 +22,30 @@ export const getUserIdByMailAndPassword = async (
   return user[0].user_id;
 };
 
-export const getUsers = async (// TODO
-  limit: number,
-  offset: number
-): Promise<User[]> => {
-  const query = `SELECT user_id, user_name, office_id, user_icon_id FROM user ORDER BY entry_date ASC, kana ASC LIMIT ? OFFSET ?`;
-  const rows: RowDataPacket[] = [];
+// export const getUsers = async (// TODO
+//   limit: number,
+//   offset: number
+// ): Promise<User[]> => {
+//   const query = `SELECT user_id, user_name, office_id, user_icon_id FROM user ORDER BY entry_date ASC, kana ASC LIMIT ? OFFSET ?`;
+//   const rows: RowDataPacket[] = [];
 
-  const [userRows] = await pool.query<RowDataPacket[]>(query, [limit, offset]);
-  for (const userRow of userRows) {
-    const [officeRows] = await pool.query<RowDataPacket[]>(
-      `SELECT office_name FROM office WHERE office_id = ?`,
-      [userRow.office_id]
-    );
-    const [fileRows] = await pool.query<RowDataPacket[]>(
-      `SELECT file_name FROM file WHERE file_id = ?`,
-      [userRow.user_icon_id]
-    );
-    userRow.office_name = officeRows[0].office_name;
-    userRow.file_name = fileRows[0].file_name;
-    rows.push(userRow);
-  }
+//   const [userRows] = await pool.query<RowDataPacket[]>(query, [limit, offset]);
+//   for (const userRow of userRows) {
+//     const [officeRows] = await pool.query<RowDataPacket[]>(
+//       `SELECT office_name FROM office WHERE office_id = ?`,
+//       [userRow.office_id]
+//     );
+//     const [fileRows] = await pool.query<RowDataPacket[]>(
+//       `SELECT file_name FROM file WHERE file_id = ?`,
+//       [userRow.user_icon_id]
+//     );
+//     userRow.office_name = officeRows[0].office_name;
+//     userRow.file_name = fileRows[0].file_name;
+//     rows.push(userRow);
+//   }
 
-  return convertToUsers(rows);
-};
+//   return convertToUsers(rows);
+// };
 
 // export const getUsers = async (
 //   limit: number,
@@ -59,13 +59,34 @@ export const getUsers = async (// TODO
 //       file.file_name as user_icon_id
 //     FROM user
 //     LEFT JOIN office ON user.office_id =
-//     .office_id
+//     office.office_id
 //     LEFT JOIN file ON user.user_icon_id = file.file_id
 //     ORDER BY user.entry_date ASC, user.kana ASC
 //     LIMIT ? OFFSET ?`;
 //   const [rows] = await pool.query<RowDataPacket[]>(query, [limit, offset]);
 //   return convertToUsers(rows);
 // };
+
+export const getUsers = async (
+  limit: number,
+  offset: number
+): Promise<User[]> => {
+  const query = `
+    SELECT
+      user.user_id,
+      user.user_name,
+      office.office_name as office_id,
+      file.file_name as user_icon_id
+    FROM user, office, file
+    ORDER BY user.entry_date ASC, user.kana ASC
+    WHERE
+    user.office_id = office.office_id(+) AND
+    user.user_icon_id = file.file_id(+)
+    LIMIT ? OFFSET ?
+    `;
+  const [rows] = await pool.query<RowDataPacket[]>(query, [limit, offset]);
+  return convertToUsers(rows);
+};
 
 export const getUserByUserId = async (// TODO
   userId: string
@@ -163,7 +184,7 @@ export const getUsersByUserName = async (
 ): Promise<SearchedUser[]> => {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT user_id FROM user WHERE user_name LIKE ?`,
-    [`%${userName}%`]
+    [`${userName}%`]
   );
   const userIds: string[] = rows.map((row) => row.user_id);
 
@@ -173,7 +194,7 @@ export const getUsersByUserName = async (
 export const getUsersByKana = async (kana: string): Promise<SearchedUser[]> => {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT user_id FROM user WHERE kana LIKE ?`,
-    [`%${kana}%`]
+    [`${kana}%`]
   );
   const userIds: string[] = rows.map((row) => row.user_id);
 
@@ -183,7 +204,7 @@ export const getUsersByKana = async (kana: string): Promise<SearchedUser[]> => {
 export const getUsersByMail = async (mail: string): Promise<SearchedUser[]> => {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT user_id FROM user WHERE mail LIKE ?`,
-    [`%${mail}%`]
+    [`${mail}%`]
   );
   const userIds: string[] = rows.map((row) => row.user_id);
 
@@ -195,7 +216,7 @@ export const getUsersByDepartmentName = async (
 ): Promise<SearchedUser[]> => {
   const [departmentIdRows] = await pool.query<RowDataPacket[]>(
     `SELECT department_id FROM department WHERE department_name LIKE ? AND active = true`,
-    [`%${departmentName}%`]
+    [`${departmentName}%`]
   );
   const departmentIds: string[] = departmentIdRows.map(
     (row) => row.department_id
@@ -218,7 +239,7 @@ export const getUsersByRoleName = async (
 ): Promise<SearchedUser[]> => {
   const [roleIdRows] = await pool.query<RowDataPacket[]>(
     `SELECT role_id FROM role WHERE role_name LIKE ? AND active = true`,
-    [`%${roleName}%`]
+    [`${roleName}%`]
   );
   const roleIds: string[] = roleIdRows.map((row) => row.role_id);
   if (roleIds.length === 0) {
@@ -239,7 +260,7 @@ export const getUsersByOfficeName = async (
 ): Promise<SearchedUser[]> => {
   const [officeIdRows] = await pool.query<RowDataPacket[]>(
     `SELECT office_id FROM office WHERE office_name LIKE ?`,
-    [`%${officeName}%`]
+    [`${officeName}%`]
   );
   const officeIds: string[] = officeIdRows.map((row) => row.office_id);
   if (officeIds.length === 0) {
@@ -260,7 +281,7 @@ export const getUsersBySkillName = async (
 ): Promise<SearchedUser[]> => {
   const [skillIdRows] = await pool.query<RowDataPacket[]>(
     `SELECT skill_id FROM skill WHERE skill_name LIKE ?`,
-    [`%${skillName}%`]
+    [`${skillName}%`]
   );
   const skillIds: string[] = skillIdRows.map((row) => row.skill_id);
   if (skillIds.length === 0) {
@@ -279,7 +300,7 @@ export const getUsersBySkillName = async (
 export const getUsersByGoal = async (goal: string): Promise<SearchedUser[]> => {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT user_id FROM user WHERE goal LIKE ?`,
-    [`%${goal}%`]
+    [`${goal}%`]
   );
   const userIds: string[] = rows.map((row) => row.user_id);
 
