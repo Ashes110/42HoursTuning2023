@@ -39,62 +39,38 @@ export const getUsers = async (
   return convertToUsers(rows);
 };
 
-export const getUserByUserId = async (// TODO
-  userId: string
-): Promise<User | undefined> => {
-  const [user] = await pool.query<RowDataPacket[]>(
-    "SELECT user_id, user_name, office_id, user_icon_id FROM user WHERE user_id = ?",
-    [userId]
-  );
-  if (user.length === 0) {
-    return;
-  }
-  const [office] = await pool.query<RowDataPacket[]>(
-    `SELECT office_name FROM office WHERE office_id = ?`,
-    [user[0].office_id]
-  );
-  const [file] = await pool.query<RowDataPacket[]>(
-    `SELECT file_name FROM file WHERE file_id = ?`,
-    [user[0].user_icon_id]
-  );
-  return {
-    userId: user[0].user_id,
-    userName: user[0].user_name,
-    userIcon: {
-      fileId: user[0].user_icon_id,
-      fileName: file[0].file_name,
-    },
-    officeName: office[0].office_name,
-  };
-};
+export const getUserByUserId = async (userId: string): Promise<User | undefined> => {
+  try {
+    const query = `
+      SELECT u.user_id, u.user_name, u.office_id, u.user_icon_id, o.office_name, f.file_name
+      FROM user AS u
+      LEFT JOIN office AS o ON u.office_id = o.office_id
+      LEFT JOIN file AS f ON u.user_icon_id = f.file_id
+      WHERE u.user_id = ?`;
 
-// export const getUserByUserId = async (
-//   userId: string
-// ): Promise<User | undefined> => {
-//   const query = `
-//     SELECT
-//       user.user_id,
-//       user.user_name,
-//       office.office_name as office_name,
-//       file.file_name as file_name
-//     FROM user
-//     LEFT JOIN office ON user.office_id = office.office_id
-//     LEFT JOIN file ON user.user_icon_id = file.file_id
-//     WHERE user.user_id = ?`;
-//   const [rows] = await pool.query<RowDataPacket[]>(query, [userId]);
-//   if (rows.length === 0) {
-//     return;
-//   }
-//   return {
-//     userId: rows[0].user_id,
-//     userName: rows[0].user_name,
-//     userIcon: {
-//       fileId: rows[0].user_icon_id,
-//       fileName: rows[0].file_name,
-//     },
-//     officeName: rows[0].office_name,
-//   };
-// };
+    const [rows] = await pool.query<RowDataPacket[]>(query, [userId]);
+
+    if (rows.length === 0) {
+      return undefined;
+    }
+
+    const user = rows[0];
+
+    return {
+      userId: user.user_id,
+      userName: user.user_name,
+      userIcon: {
+        fileId: user.user_icon_id,
+        fileName: user.file_name,
+      },
+      officeName: user.office_name,
+    };
+  } catch (error) {
+    // エラーハンドリング
+    console.error('An error occurred while fetching user:', error);
+    throw error;
+  }
+};
 
 export const getUsersByUserIds = async (//TODO
   userIds: string[]
@@ -124,23 +100,6 @@ export const getUsersByUserIds = async (//TODO
   }
   return users;
 };
-
-// export const getUsersByUserIds = async (
-//   userIds: string[]
-// ): Promise<SearchedUser[]> => {
-//   const query = `
-//     SELECT user.user_id, user.user_name, user.kana, user.entry_date,
-//            office.office_name, file.file_name
-//     FROM user
-//     LEFT JOIN office ON user.office_id = office.office_id
-//     LEFT JOIN file ON user.user_icon_id = file.file_id
-//     WHERE user.user_id IN (?)
-//   `;
-//   const [userRows] = await pool.query<RowDataPacket[]>(query, [userIds]);
-
-//   let users: SearchedUser[] = userRows.map(row => convertToSearchedUser(row));
-//   return users;
-// };
 
 export const getUsersByUserName = async (
   userName: string
@@ -270,10 +229,9 @@ export const getUsersByGoal = async (goal: string): Promise<SearchedUser[]> => {
   return getUsersByUserIds(userIds);
 };
 
-export const getUserForFilter = async (//TODO
-  userId?: string
-): Promise<UserForFilter> => {
+export const getUserForFilter = async (userId?: string): Promise<UserForFilter> => {
   let userRows: RowDataPacket[];
+
   if (!userId) {
     [userRows] = await pool.query<RowDataPacket[]>(
       "SELECT user_id, user_name, office_id, user_icon_id FROM user ORDER BY RAND() LIMIT 1"
@@ -284,66 +242,37 @@ export const getUserForFilter = async (//TODO
       [userId]
     );
   }
+
   const user = userRows[0];
 
   const [officeNameRow] = await pool.query<RowDataPacket[]>(
     `SELECT office_name FROM office WHERE office_id = ?`,
     [user.office_id]
   );
+
   const [fileNameRow] = await pool.query<RowDataPacket[]>(
     `SELECT file_name FROM file WHERE file_id = ?`,
     [user.user_icon_id]
   );
+
   const [departmentNameRow] = await pool.query<RowDataPacket[]>(
-    `SELECT department_name FROM department WHERE department_id = (SELECT department_id FROM department_role_member WHERE user_id = ? AND belong = true)`,
-    [user.user_id]
-  );
-  const [skillNameRows] = await pool.query<RowDataPacket[]>(
-    `SELECT skill_name FROM skill WHERE skill_id IN (SELECT skill_id FROM skill_member WHERE user_id = ?)`,
+    `SELECT department_name FROM department WHERE department_id = (
+      SELECT department_id FROM department_role_member WHERE user_id = ? AND belong = true
+    )`,
     [user.user_id]
   );
 
-  user.office_name = officeNameRow[0].office_name;
-  user.file_name = fileNameRow[0].file_name;
-  user.department_name = departmentNameRow[0].department_name;
+  const [skillNameRows] = await pool.query<RowDataPacket[]>(
+    `SELECT skill_name FROM skill WHERE skill_id IN (
+      SELECT skill_id FROM skill_member WHERE user_id = ?
+    )`,
+    [user.user_id]
+  );
+
+  user.office_name = officeNameRow[0]?.office_name;
+  user.file_name = fileNameRow[0]?.file_name;
+  user.department_name = departmentNameRow[0]?.department_name;
   user.skill_names = skillNameRows.map((row) => row.skill_name);
 
   return convertToUserForFilter(user);
 };
-
-// export const getUserForFilter = async (
-//   userId?: string
-// ): Promise<UserForFilter> => {
-//   let userRows: RowDataPacket[];
-//   if (!userId) {
-//     [userRows] = await pool.query<RowDataPacket[]>(
-//       `SELECT user.user_id, user.user_name, office.office_name, file.file_name, department.department_name, GROUP_CONCAT(skill.skill_name) as skill_names
-//        FROM user
-//        LEFT JOIN office ON user.office_id = office.office_id
-//        LEFT JOIN file ON user.user_icon_id = file.file_id
-//        LEFT JOIN department_role_member ON user.user_id = department_role_member.user_id AND department_role_member.belong = true
-//        LEFT JOIN department ON department_role_member.department_id = department.department_id
-//        LEFT JOIN skill_member ON user.user_id = skill_member.user_id
-//        LEFT JOIN skill ON skill_member.skill_id = skill.skill_id
-//        GROUP BY user.user_id
-//        ORDER BY RAND() LIMIT 1`
-//     );
-//   } else {
-//     [userRows] = await pool.query<RowDataPacket[]>(
-//       `SELECT user.user_id, user.user_name, office.office_name, file.file_name, department.department_name, GROUP_CONCAT(skill.skill_name) as skill_names
-//        FROM user
-//        LEFT JOIN office ON user.office_id = office.office_id
-//        LEFT JOIN file ON user.user_icon_id = file.file_id
-//        LEFT JOIN department_role_member ON user.user_id = department_role_member.user_id AND department_role_member.belong = true
-//        LEFT JOIN department ON department_role_member.department_id = department.department_id
-//        LEFT JOIN skill_member ON user.user_id = skill_member.user_id
-//        LEFT JOIN skill ON skill_member.skill_id = skill.skill_id
-//        WHERE user.user_id = ?
-//        GROUP BY user.user_id`,
-//       [userId]
-//     );
-//   }
-//   const user = userRows[0];
-//   user.skill_names = user.skill_names.split(",");
-//   return convertToUserForFilter(user);
-// };
